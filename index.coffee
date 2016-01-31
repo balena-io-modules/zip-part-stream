@@ -24,6 +24,7 @@ ZIP_ECD_DISK_NUM = 0
 ZIP_ECD_CD_ENTRIES = 1
 ZIP_ECD_FILE_ENTRIES = 1
 ZIP_ECD_COMM_LEN = 0
+ZIP_ECD_SIZE = 22
 
 # Create a stream for a compressed partial file
 # The stream has to be consumed first to generate metadata information.
@@ -161,7 +162,7 @@ createCentralDirectory = ({ filename, compressed_size, uncompressed_size, crc, m
 createEndOfCDRecord = ({ filename, compressed_size }) ->
 	cd_offset = fileHeaderLength(filename) + compressed_size
 	cd_size = centralDirectoryLength(filename)
-	ecd = new Buffer(22)
+	ecd = new Buffer(ZIP_ECD_SIZE)
 	ecd.write(ZIP_ECD_SIGNATURE, 0, 4, 'hex')
 	ecd.writeUIntLE(ZIP_ECD_DISK_NUM, 4, 2)
 	ecd.writeUIntLE(ZIP_CD_DISK_START, 6, 2)
@@ -195,4 +196,5 @@ exports.createZip = createZip = (filename, parts) ->
 	out.append(stream) for { stream } in parts
 	out.append(createCentralDirectory(entry))
 	out.append(createEndOfCDRecord(entry))
+	out.zLen = fileHeaderLength(filename) + entry.compressed_size + centralDirectoryLength(filename) + ZIP_ECD_SIZE
 	return out
