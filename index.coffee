@@ -87,8 +87,8 @@ createFileHeader = ({ filename, compressed_size, uncompressed_size, crc, mtime, 
 	fileHeader.write(ZIP_VERSION, 4, 2, 'hex')
 	fileHeader.write(ZIP_FLAGS, 6, 2, 'hex')
 	fileHeader.write(ZIP_COMPRESSION_DEFLATE, 8, 2, 'hex')
-	fileHeader.write(mtime, 10, 2, 'hex')
-	fileHeader.write(mdate, 12, 2, 'hex')
+	mtime.copy(fileHeader, 10)
+	mdate.copy(fileHeader, 12)
 	crc.copy(fileHeader, 14)
 	fileHeader.writeUIntLE(compressed_size, 18, 4)
 	fileHeader.writeUIntLE(uncompressed_size, 22, 4)
@@ -129,8 +129,8 @@ createCentralDirectory = ({ filename, compressed_size, uncompressed_size, crc, m
 	cd.write(ZIP_VERSION, 6, 2, 'hex')
 	cd.write(ZIP_FLAGS, 8, 2, 'hex')
 	cd.write(ZIP_COMPRESSION_DEFLATE, 10, 2, 'hex')
-	cd.write(mtime, 12, 2, 'hex')
-	cd.write(mdate, 14, 2, 'hex')
+	mtime.copy(cd, 12)
+	mdate.copy(cd, 14)
 	crc.copy(cd, 16)
 	cd.writeUIntLE(compressed_size, 20, 4, 'hex')
 	cd.writeUIntLE(uncompressed_size, 24, 4, 'hex')
@@ -173,6 +173,16 @@ createEndOfCDRecord = ({ filename, compressed_size }) ->
 	ecd.writeUIntLE(ZIP_ECD_COMM_LEN, 20, 2, 'hex')
 	return ecd
 
+dosFormatTime = (d) ->
+	buf = new Buffer(2)
+	buf.writeUIntLE((d.getSeconds() / 2) + (d.getMinutes() << 5) + (d.getHours() << 11), 0, 2)
+	return buf
+
+dosFormatDate = (d) ->
+	buf = new Buffer(2)
+	buf.writeUIntLE(d.getDate() + ((d.getMonth() + 1) << 5) + ((d.getFullYear() - 1980) << 9), 0, 2)
+	return buf
+
 # Create a zip that has a single file,
 # created from multiple parts that are already compressed.
 #
@@ -182,14 +192,15 @@ createEndOfCDRecord = ({ filename, compressed_size }) ->
 #
 # filename: the filename of the single generated file in the archive
 # parts: list of metadata objects obtained from createDeflatePart streams
-exports.createZip = createZip = (filename, parts) ->
+exports.createZip = createZip = (filename, parts, mdate) ->
+	mdate ?= new Date()
 	entry =
 		filename: filename
 		compressed_size: parts.reduce ((sum, x) -> sum + x.zLen), 0
 		uncompressed_size: parts.reduce ((sum, x) -> sum + x.len), 0
 		crc: crcUtils.crc32_combine_multi(parts).combinedCrc32[0..3]
-		mtime: 'd76d'
-		mdate: '3d48'
+		mtime: dosFormatTime(mdate)
+		mdate: dosFormatDate(mdate)
 
 	out = CombinedStream.create()
 	out.append(createFileHeader(entry))
