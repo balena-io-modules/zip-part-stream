@@ -183,6 +183,15 @@ dosFormatDate = (d) ->
 	buf.writeUIntLE(d.getDate() + ((d.getMonth() + 1) << 5) + ((d.getFullYear() - 1980) << 9), 0, 2)
 	return buf
 
+getCombinedCrc = (parts) ->
+	if parts.length == 1
+		# crc32 is stored as a number, has to be transformed to a Buffer
+		buf = new Buffer(4)
+		buf.writeUInt32LE(parts[0].crc, 0, 4)
+		return buf
+	else
+		crcUtils.crc32_combine_multi(parts).combinedCrc32[0..3]
+
 # Create a zip that has a single file,
 # created from multiple parts that are already compressed.
 #
@@ -198,7 +207,7 @@ exports.createZip = createZip = (filename, parts, mdate) ->
 		filename: filename
 		compressed_size: parts.reduce ((sum, x) -> sum + x.zLen), 0
 		uncompressed_size: parts.reduce ((sum, x) -> sum + x.len), 0
-		crc: crcUtils.crc32_combine_multi(parts).combinedCrc32[0..3]
+		crc: getCombinedCrc(parts)
 		mtime: dosFormatTime(mdate)
 		mdate: dosFormatDate(mdate)
 
