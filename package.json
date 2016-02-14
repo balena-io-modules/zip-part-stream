@@ -2,10 +2,20 @@
   "name": "zip-part-stream",
   "version": "0.0.2",
   "description": "Create zip from multiple pre-compressed partial files.",
+  "scripts": {
+    "test": "./node_modules/.bin/mocha --compilers coffee:coffee-script/register test/index.coffee"
+  },
   "license": "Apache-2.0",
   "dependencies": {
     "combined-stream": "~1.0.5",
     "crc32-stream": "~0.4.0",
     "resin-crc-utils": "^1.0.1"
+  },
+  "devDependencies": {
+    "bluebird": "^3.3.0",
+    "chai": "^3.5.0",
+    "chai-as-promised": "^5.2.0",
+    "coffee-script": "^1.10.0",
+    "mocha": "^2.4.5"
   }
 }
