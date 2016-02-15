@@ -21,8 +21,6 @@ ZIP_CD_EXTRAFIELD = ''
 ZIP_CD_EXTRAFIELD_LEN = 0
 ZIP_ECD_SIGNATURE = '504b0506'
 ZIP_ECD_DISK_NUM = 0
-ZIP_ECD_CD_ENTRIES = 1
-ZIP_ECD_FILE_ENTRIES = 1
 ZIP_ECD_COMM_LEN = 0
 ZIP_ECD_SIZE = 22
 
@@ -122,7 +120,7 @@ createFileHeader = ({ filename, compressed_size, uncompressed_size, crc, mtime, 
 #	FILENAME: Filename, ascii
 #	EXTRAFIELD: Description of further custom properties (const here)
 #	COMMENT: File comment (none here, no support for comments)
-createCentralDirectory = ({ filename, compressed_size, uncompressed_size, crc, mtime, mdate }) ->
+createCDRecord = ({ filename, compressed_size, uncompressed_size, crc, mtime, mdate }) ->
 	cd = new Buffer(centralDirectoryLength(filename))
 	cd.write(ZIP_CD_SIGNATURE, 0, 4, 'hex')
 	cd.write(ZIP_CD_VERSION, 4, 2, 'hex')
@@ -159,15 +157,15 @@ createCentralDirectory = ({ filename, compressed_size, uncompressed_size, crc, m
 # 	FILES: Total number of files in the archive
 # 	CDSZ: Size of central directory
 # 	CDOFF: Offset of central directory from disk it exists
-createEndOfCDRecord = ({ filename, compressed_size }) ->
-	cd_offset = fileHeaderLength(filename) + compressed_size
-	cd_size = centralDirectoryLength(filename)
+createEndOfCDRecord = (entries) ->
+	cd_offset = entries.reduce ((sum, x) -> sum + fileHeaderLength(x.filename) + x.compressed_size), 0
+	cd_size = entries.reduce ((sum, x) -> sum + centralDirectoryLength(x.filename)), 0
 	ecd = new Buffer(ZIP_ECD_SIZE)
 	ecd.write(ZIP_ECD_SIGNATURE, 0, 4, 'hex')
 	ecd.writeUIntLE(ZIP_ECD_DISK_NUM, 4, 2)
 	ecd.writeUIntLE(ZIP_CD_DISK_START, 6, 2)
-	ecd.writeUIntLE(ZIP_ECD_CD_ENTRIES, 8, 2)
-	ecd.writeUIntLE(ZIP_ECD_FILE_ENTRIES, 10, 2)
+	ecd.writeUIntLE(entries.length, 8, 2)
+	ecd.writeUIntLE(entries.length, 10, 2)
 	ecd.writeUIntLE(cd_size, 12, 4)
 	ecd.writeUIntLE(cd_offset, 16, 4)
 	ecd.writeUIntLE(ZIP_ECD_COMM_LEN, 20, 2, 'hex')
@@ -192,29 +190,31 @@ getCombinedCrc = (parts) ->
 	else
 		crcUtils.crc32_combine_multi(parts).combinedCrc32[0..3]
 
-# Create a zip that has a single file,
-# created from multiple parts that are already compressed.
-#
-# The use case is generating zip archive for a huge file
-# that has only a small dynamic part. The static parts
-# are pre-compressed, giving a huge speed boost.
-#
-# filename: the filename of the single generated file in the archive
-# parts: list of metadata objects obtained from createDeflatePart streams
-exports.createZip = createZip = (filename, parts, mdate) ->
+
+exports.totalLength = totalLength = (entries) ->
+	return ZIP_ECD_SIZE + entries.reduce ((sum, x) -> sum + x.zLen), 0
+
+exports.createEntry = (filename, parts, mdate) ->
 	mdate ?= new Date()
+	compressed_size = parts.reduce ((sum, x) -> sum + x.zLen), 0
+	uncompressed_size = parts.reduce ((sum, x) -> sum + x.len), 0
 	entry =
 		filename: filename
-		compressed_size: parts.reduce ((sum, x) -> sum + x.zLen), 0
-		uncompressed_size: parts.reduce ((sum, x) -> sum + x.len), 0
+		compressed_size: compressed_size
+		uncompressed_size: uncompressed_size
 		crc: getCombinedCrc(parts)
 		mtime: dosFormatTime(mdate)
 		mdate: dosFormatDate(mdate)
+		zLen: fileHeaderLength(filename) + compressed_size + centralDirectoryLength(filename)
+		stream: CombinedStream.create()
+	entry.stream.append(createFileHeader(entry))
+	entry.stream.append(stream) for { stream } in parts
+	return entry
 
+exports.createZip = createZip = (entries) ->
 	out = CombinedStream.create()
-	out.append(createFileHeader(entry))
-	out.append(stream) for { stream } in parts
-	out.append(createCentralDirectory(entry))
-	out.append(createEndOfCDRecord(entry))
-	out.zLen = fileHeaderLength(filename) + entry.compressed_size + centralDirectoryLength(filename) + ZIP_ECD_SIZE
+	out.append(stream) for { stream } in entries
+	out.append(createCDRecord(entry)) for entry in entries
+	out.append(createEndOfCDRecord(entries))
+	out.zLen = totalLength(entries)
 	return out
