@@ -2,7 +2,7 @@ Promise = require 'bluebird'
 fs = Promise.promisifyAll(require 'fs')
 path = require 'path'
 { expect } = require './utils/chai'
-{ createZip, createEntry } = require '..'
+{ create, createZip, createEntry } = require '..'
 
 mdate = new Date(2016, 0, 1, 0, 0, 0) # use the same mdate in all tests
 
@@ -28,7 +28,7 @@ describe 'createZip', ->
 				part = require('./fixtures/single-entry/test.txt.json')
 				part.stream = fs.createReadStream('test/fixtures/single-entry/test.txt.deflate')
 				entry = createEntry('input.txt', [ part ], mdate)
-				stream = createZip([ entry ])
+				stream = create([ entry ])
 				expect(stream).to.be.a.Stream
 				expect(drain(stream)).to.eventually.deep.equal(fs.readFileSync('test/fixtures/single-entry/output.zip'))
 
@@ -39,7 +39,7 @@ describe 'createZip', ->
 				part2 = require('./fixtures/single-entry-parts/test2.txt.json')
 				part2.stream = fs.createReadStream('test/fixtures/single-entry-parts/test2.txt.deflate')
 				entry = createEntry('input.txt', [ part1, part2 ], mdate)
-				stream = createZip([ entry ])
+				stream = create([ entry ])
 				expect(stream).to.be.a.Stream
 				expect(drain(stream)).to.eventually.deep.equal(fs.readFileSync('test/fixtures/single-entry-parts/output.zip'))
 
@@ -55,6 +55,6 @@ describe 'createZip', ->
 			part4 = require('./fixtures/multiple-entries/hello2.txt.json')
 			part4.stream = fs.createReadStream('test/fixtures/multiple-entries/hello2.txt.deflate')
 			entry2 = createEntry('hello.txt', [ part3, part4 ], mdate)
-			stream = createZip([ entry1, entry2 ])
+			stream = create([ entry1, entry2 ])
 			expect(stream).to.be.a.Stream
 			expect(drain(stream)).to.eventually.deep.equal(fs.readFileSync('test/fixtures/multiple-entries/output.zip'))

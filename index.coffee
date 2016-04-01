@@ -1,5 +1,5 @@
 crcUtils = require 'resin-crc-utils'
-CombinedStream = require 'combined-stream'
+CombinedStream = require 'combined-stream2'
 { DeflateCRC32Stream } = require 'crc32-stream'
 
 # Zip constants, explained how they are used on each function.
@@ -194,7 +194,7 @@ getCombinedCrc = (parts) ->
 exports.totalLength = totalLength = (entries) ->
 	return ZIP_ECD_SIZE + entries.reduce ((sum, x) -> sum + x.zLen), 0
 
-exports.createEntry = (filename, parts, mdate) ->
+exports.createEntry = createEntry = (filename, parts, mdate) ->
 	mdate ?= new Date()
 	compressed_size = parts.reduce ((sum, x) -> sum + x.zLen), 0
 	uncompressed_size = parts.reduce ((sum, x) -> sum + x.len), 0
@@ -211,10 +211,16 @@ exports.createEntry = (filename, parts, mdate) ->
 	entry.stream.append(stream) for { stream } in parts
 	return entry
 
-exports.createZip = createZip = (entries) ->
+exports.create = create = (entries) ->
 	out = CombinedStream.create()
 	out.append(stream) for { stream } in entries
 	out.append(createCDRecord(entry)) for entry in entries
 	out.append(createEndOfCDRecord(entries))
 	out.zLen = totalLength(entries)
 	return out
+
+# DEPRECATED
+# Single-entry zip archive backwards-compatibility
+exports.createZip = (filename, parts, mdate) ->
+	entry = createEntry(filename, parts, mdate)
+	create([ entry ])
