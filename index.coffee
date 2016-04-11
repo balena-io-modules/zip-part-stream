@@ -16,7 +16,6 @@ ZIP_CD_FILE_COMM_LEN = 0
 ZIP_CD_DISK_START = 0
 ZIP_CD_INTERNAL_ATT = '0100'
 ZIP_CD_EXTERNAL_ATT = '0000a481'
-ZIP_CD_LOCAL_HEADER_OFFSET = 0
 ZIP_CD_EXTRAFIELD = ''
 ZIP_CD_EXTRAFIELD_LEN = 0
 ZIP_ECD_SIGNATURE = '504b0506'
@@ -120,7 +119,7 @@ createFileHeader = ({ filename, compressed_size, uncompressed_size, crc, mtime, 
 #	FILENAME: Filename, ascii
 #	EXTRAFIELD: Description of further custom properties (const here)
 #	COMMENT: File comment (none here, no support for comments)
-createCDRecord = ({ filename, compressed_size, uncompressed_size, crc, mtime, mdate }) ->
+createCDRecord = ({ filename, compressed_size, uncompressed_size, crc, mtime, mdate, fileHeaderOffset }) ->
 	cd = new Buffer(centralDirectoryLength(filename))
 	cd.write(ZIP_CD_SIGNATURE, 0, 4, 'hex')
 	cd.write(ZIP_CD_VERSION, 4, 2, 'hex')
@@ -138,7 +137,7 @@ createCDRecord = ({ filename, compressed_size, uncompressed_size, crc, mtime, md
 	cd.writeUIntLE(ZIP_CD_DISK_START, 34, 2)
 	cd.write(ZIP_CD_INTERNAL_ATT, 36, 2, 'hex')
 	cd.write(ZIP_CD_EXTERNAL_ATT, 38, 4, 'hex')
-	cd.writeUIntLE(ZIP_CD_LOCAL_HEADER_OFFSET, 42, 4)
+	cd.writeUIntLE(fileHeaderOffset, 42, 4)
 	cd.write(filename, 46, 'ascii')
 	cd.write(ZIP_CD_EXTRAFIELD, 46 + filename.length, ZIP_CD_EXTRAFIELD_LEN, 'hex')
 	return cd
@@ -198,6 +197,7 @@ exports.createEntry = createEntry = (filename, parts, mdate) ->
 	mdate ?= new Date()
 	compressed_size = parts.reduce ((sum, x) -> sum + x.zLen), 0
 	uncompressed_size = parts.reduce ((sum, x) -> sum + x.len), 0
+	contentLength = fileHeaderLength(filename) + compressed_size
 	entry =
 		filename: filename
 		compressed_size: compressed_size
@@ -205,7 +205,9 @@ exports.createEntry = createEntry = (filename, parts, mdate) ->
 		crc: getCombinedCrc(parts)
 		mtime: dosFormatTime(mdate)
 		mdate: dosFormatDate(mdate)
-		zLen: fileHeaderLength(filename) + compressed_size + centralDirectoryLength(filename)
+		contentLength: contentLength
+		fileHeaderOffset: null # known only after it is appended to the stream
+		zLen: contentLength + centralDirectoryLength(filename)
 		stream: CombinedStream.create()
 	entry.stream.append(createFileHeader(entry))
 	entry.stream.append(stream) for { stream } in parts
@@ -213,7 +215,11 @@ exports.createEntry = createEntry = (filename, parts, mdate) ->
 
 exports.create = create = (entries) ->
 	out = CombinedStream.create()
-	out.append(stream) for { stream } in entries
+	offset = 0
+	for entry in entries
+		entry.fileHeaderOffset = offset
+		offset += entry.contentLength
+		out.append(entry.stream)
 	out.append(createCDRecord(entry)) for entry in entries
 	out.append(createEndOfCDRecord(entries))
 	out.zLen = totalLength(entries)
