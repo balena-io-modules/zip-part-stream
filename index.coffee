@@ -23,32 +23,38 @@ ZIP_ECD_DISK_NUM = 0
 ZIP_ECD_COMM_LEN = 0
 ZIP_ECD_SIZE = 22
 
-# Create a stream for a compressed partial file
-# The stream has to be consumed first to generate metadata information.
-# Metadata and contents (as a readable stream) can then be used on createZip.
-#
-# Parameters:
-#     isLast: bool, if this is the last part of the file
-exports.createDeflatePart = createDeflatePart = (isLast) ->
-	compress = new DeflateCRC32Stream()
-	if not isLast
-		# DEFLATE streams are a series of blocks,
-		# each having a bit that marks whether there are more blocks after it.
-		#
-		# When the stream receives an end call, it means input has finished
-		# and that block is marked as final. If that happens, it won't be possible
-		# to concatenate it with further compressed parts.
-		#
-		# Calling flush when end is called makes the stream not "know" the input
-		# has ended at the time of flushing, and so the final block is marked as non-final.
-		compress.end = ->
-			compress.flush ->
-				compress.emit('end')
-	compress.metadata = ->
+# DEFLATE ending block
+DEFLATE_END = new Buffer([ 0x03, 0x00 ])
+
+# Use the logic briefly described here by the author of zlib library:
+# http://stackoverflow.com/questions/14744692/concatenate-multiple-zlib-compressed-data-streams-into-a-single-stream-efficient#comment51865187_14744792
+# to generate deflate streams that can be concatenated into a gzip stream
+class DeflatePartStream extends DeflateCRC32Stream
+	constructor: ->
+		@buf = new Buffer(0)
+		super
+	push: (chunk) ->
+		if chunk isnt null
+			# got another chunk, previous chunk is safe to send
+			super(@buf)
+			@buf = chunk
+		else
+			# got null signalling end of stream
+			# inspect last chunk for 2-byte DEFLATE_END marker and remove it
+			if @buf.length >= 2 and @buf[-2..].equals(DEFLATE_END)
+				@buf = @buf[...-2]
+			super(@buf)
+			super(null)
+	end: ->
+		@flush =>
+			super()
+	metadata: ->
 		crc: @digest()
 		len: @size()
 		zLen: @size(true)
-	return compress
+
+exports.createDeflatePart = ->
+	return new DeflatePartStream()
 
 # Calculate length of file entry header
 # length of static information + filename length + extrafield length

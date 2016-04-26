@@ -44,7 +44,7 @@ describe 'createZip', ->
 				expect(drain(stream)).to.eventually.deep.equal(fs.readFileSync('test/fixtures/single-entry-parts/output.zip'))
 
 	describe 'multiple entries', ->
-		it 'should create the expected zip file', ->
+		it 'should create the expected zip file', (done) ->
 			part1 = require('./fixtures/multiple-entries/foo1.txt.json')
 			part1.stream = fs.createReadStream('test/fixtures/multiple-entries/foo1.txt.deflate')
 			part2 = require('./fixtures/multiple-entries/foo2.txt.json')
@@ -58,3 +58,4 @@ describe 'createZip', ->
 			stream = create([ entry1, entry2 ])
 			expect(stream).to.be.a.Stream
 			expect(drain(stream)).to.eventually.deep.equal(fs.readFileSync('test/fixtures/multiple-entries/output.zip'))
+			done()
