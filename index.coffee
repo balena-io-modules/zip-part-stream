@@ -3,24 +3,21 @@ CombinedStream = require 'combined-stream2'
 { DeflateCRC32Stream } = require 'crc32-stream'
 
 # Zip constants, explained how they are used on each function.
-ZIP_VERSION = '0a00'
-ZIP_FLAGS = '0000'
-ZIP_ENTRY_SIGNATURE = '504b0304'
-ZIP_ENTRY_EXTRAFIELD = ''
-ZIP_ENTRY_EXTRAFIELD_LEN = 0
-ZIP_COMPRESSION_DEFLATE = '0000'
-ZIP_COMPRESSION_DEFLATE = '0800'
-ZIP_CD_SIGNATURE = '504b0102'
-ZIP_CD_VERSION = '1e03'
-ZIP_CD_FILE_COMM_LEN = 0
-ZIP_CD_DISK_START = 0
-ZIP_CD_INTERNAL_ATT = '0100'
-ZIP_CD_EXTERNAL_ATT = '0000a481'
-ZIP_CD_EXTRAFIELD = ''
-ZIP_CD_EXTRAFIELD_LEN = 0
-ZIP_ECD_SIGNATURE = '504b0506'
-ZIP_ECD_DISK_NUM = 0
-ZIP_ECD_COMM_LEN = 0
+ZIP_VERSION = new Buffer([ 0x0a, 0x00 ])
+ZIP_FLAGS = new Buffer([ 0x00, 0x00 ])
+ZIP_ENTRY_SIGNATURE = new Buffer([ 0x50, 0x4b, 0x03, 0x04 ])
+ZIP_ENTRY_EXTRAFIELD_LEN = new Buffer([ 0x00, 0x00 ])
+ZIP_COMPRESSION_DEFLATE = new Buffer([ 0x08, 0x00 ])
+ZIP_CD_SIGNATURE = new Buffer([ 0x50, 0x4b, 0x01, 0x02 ])
+ZIP_CD_VERSION = new Buffer([ 0x1e, 0x03 ])
+ZIP_CD_FILE_COMM_LEN = new Buffer([ 0x00, 0x00 ])
+ZIP_CD_DISK_START = new Buffer([ 0x00, 0x00 ])
+ZIP_CD_INTERNAL_ATT = new Buffer([ 0x01, 0x00 ])
+ZIP_CD_EXTERNAL_ATT = new Buffer([ 0x00, 0x00, 0xa4, 0x81 ])
+ZIP_CD_EXTRAFIELD_LEN = new Buffer([ 0x00, 0x00 ])
+ZIP_ECD_SIGNATURE = new Buffer([ 0x50, 0x4b, 0x05, 0x06 ])
+ZIP_ECD_DISK_NUM = new Buffer([ 0x00, 0x00 ])
+ZIP_ECD_COMM_LEN = new Buffer([ 0x00, 0x00 ])
 ZIP_ECD_SIZE = 22
 
 # DEFLATE ending block
@@ -57,12 +54,19 @@ exports.createDeflatePart = ->
 	return new DeflatePartStream()
 
 # Calculate length of file entry header
-# length of static information + filename length + extrafield length
-fileHeaderLength = (filename) -> 30 + filename.length + ZIP_ENTRY_EXTRAFIELD_LEN
+# length of static information + filename length + extrafield length (0)
+fileHeaderLength = (filename) -> 30 + filename.length
 
 # Calculate length of central directory (assumes only one file)
-# length of static information + filename length + central directory extrafield length
-centralDirectoryLength = (filename) -> 0x2e + filename.length + ZIP_CD_EXTRAFIELD_LEN
+# length of static information + filename length + central directory extrafield length (0)
+centralDirectoryLength = (filename) -> 0x2e + filename.length
+
+# Return unsigned int as a buffer in little endian.
+# The size of the buffer needs to be passed as 2nd argument.
+iob = (number, size) ->
+	b = new Buffer(size)
+	b.fill(0).writeUIntLE(number, 0, size)
+	return b
 
 # Create file entry header
 # Structure:
@@ -85,21 +89,20 @@ centralDirectoryLength = (filename) -> 0x2e + filename.length + ZIP_CD_EXTRAFIEL
 # 	FILENAME: Filename, ascii
 # 	EXTRAFIELD: Description of further custom properties (we use a constant)
 createFileHeader = ({ filename, compressed_size, uncompressed_size, crc, mtime, mdate }) ->
-	fileHeader = new Buffer(fileHeaderLength(filename))
-	fileHeader.write(ZIP_ENTRY_SIGNATURE, 0, 4, 'hex')
-	fileHeader.write(ZIP_VERSION, 4, 2, 'hex')
-	fileHeader.write(ZIP_FLAGS, 6, 2, 'hex')
-	fileHeader.write(ZIP_COMPRESSION_DEFLATE, 8, 2, 'hex')
-	mtime.copy(fileHeader, 10)
-	mdate.copy(fileHeader, 12)
-	crc.copy(fileHeader, 14)
-	fileHeader.writeUIntLE(compressed_size, 18, 4)
-	fileHeader.writeUIntLE(uncompressed_size, 22, 4)
-	fileHeader.writeUIntLE(filename.length, 26, 2)
-	fileHeader.writeUIntLE(ZIP_ENTRY_EXTRAFIELD_LEN, 28, 2)
-	fileHeader.write(filename, 30, 'ascii')
-	fileHeader.write(ZIP_ENTRY_EXTRAFIELD, 30 + filename.length, ZIP_ENTRY_EXTRAFIELD_LEN, 'hex')
-	return fileHeader
+	Buffer.concat([
+		ZIP_ENTRY_SIGNATURE
+		ZIP_VERSION
+		ZIP_FLAGS
+		ZIP_COMPRESSION_DEFLATE
+		mtime
+		mdate
+		crc
+		iob(compressed_size, 4)
+		iob(uncompressed_size, 4)
+		iob(filename.length, 2)
+		ZIP_ENTRY_EXTRAFIELD_LEN
+		new Buffer(filename)
+	])
 
 # Create central directory record, where each of the files in zip are listed (again)
 # Structure for each file entry:
@@ -125,28 +128,27 @@ createFileHeader = ({ filename, compressed_size, uncompressed_size, crc, mtime, 
 #	FILENAME: Filename, ascii
 #	EXTRAFIELD: Description of further custom properties (const here)
 #	COMMENT: File comment (none here, no support for comments)
-createCDRecord = ({ filename, compressed_size, uncompressed_size, crc, mtime, mdate, fileHeaderOffset }) ->
-	cd = new Buffer(centralDirectoryLength(filename))
-	cd.write(ZIP_CD_SIGNATURE, 0, 4, 'hex')
-	cd.write(ZIP_CD_VERSION, 4, 2, 'hex')
-	cd.write(ZIP_VERSION, 6, 2, 'hex')
-	cd.write(ZIP_FLAGS, 8, 2, 'hex')
-	cd.write(ZIP_COMPRESSION_DEFLATE, 10, 2, 'hex')
-	mtime.copy(cd, 12)
-	mdate.copy(cd, 14)
-	crc.copy(cd, 16)
-	cd.writeUIntLE(compressed_size, 20, 4, 'hex')
-	cd.writeUIntLE(uncompressed_size, 24, 4, 'hex')
-	cd.writeUIntLE(filename.length, 28, 2)
-	cd.writeUIntLE(ZIP_CD_EXTRAFIELD_LEN, 30, 2)
-	cd.writeUIntLE(ZIP_CD_FILE_COMM_LEN, 32, 2)
-	cd.writeUIntLE(ZIP_CD_DISK_START, 34, 2)
-	cd.write(ZIP_CD_INTERNAL_ATT, 36, 2, 'hex')
-	cd.write(ZIP_CD_EXTERNAL_ATT, 38, 4, 'hex')
-	cd.writeUIntLE(fileHeaderOffset, 42, 4)
-	cd.write(filename, 46, 'ascii')
-	cd.write(ZIP_CD_EXTRAFIELD, 46 + filename.length, ZIP_CD_EXTRAFIELD_LEN, 'hex')
-	return cd
+createCDRecord = ({ filename, compressed_size, uncompressed_size, crc, mtime, mdate }, fileHeaderOffset) ->
+	Buffer.concat([
+		ZIP_CD_SIGNATURE
+		ZIP_CD_VERSION
+		ZIP_VERSION
+		ZIP_FLAGS
+		ZIP_COMPRESSION_DEFLATE
+		mtime
+		mdate
+		crc
+		iob(compressed_size, 4)
+		iob(uncompressed_size, 4)
+		iob(filename.length, 2)
+		ZIP_ENTRY_EXTRAFIELD_LEN
+		ZIP_CD_FILE_COMM_LEN
+		ZIP_CD_DISK_START
+		ZIP_CD_INTERNAL_ATT
+		ZIP_CD_EXTERNAL_ATT
+		iob(fileHeaderOffset, 4)
+		new Buffer(filename)
+	])
 
 # Create End of Central Directory Record
 # Structure:
@@ -165,16 +167,16 @@ createCDRecord = ({ filename, compressed_size, uncompressed_size, crc, mtime, md
 createEndOfCDRecord = (entries) ->
 	cd_offset = entries.reduce ((sum, x) -> sum + fileHeaderLength(x.filename) + x.compressed_size), 0
 	cd_size = entries.reduce ((sum, x) -> sum + centralDirectoryLength(x.filename)), 0
-	ecd = new Buffer(ZIP_ECD_SIZE)
-	ecd.write(ZIP_ECD_SIGNATURE, 0, 4, 'hex')
-	ecd.writeUIntLE(ZIP_ECD_DISK_NUM, 4, 2)
-	ecd.writeUIntLE(ZIP_CD_DISK_START, 6, 2)
-	ecd.writeUIntLE(entries.length, 8, 2)
-	ecd.writeUIntLE(entries.length, 10, 2)
-	ecd.writeUIntLE(cd_size, 12, 4)
-	ecd.writeUIntLE(cd_offset, 16, 4)
-	ecd.writeUIntLE(ZIP_ECD_COMM_LEN, 20, 2, 'hex')
-	return ecd
+	Buffer.concat([
+		ZIP_ECD_SIGNATURE
+		ZIP_ECD_DISK_NUM
+		ZIP_CD_DISK_START
+		iob(entries.length, 2)
+		iob(entries.length, 2)
+		iob(cd_size, 4)
+		iob(cd_offset, 4)
+		ZIP_ECD_COMM_LEN
+	])
 
 dosFormatTime = (d) ->
 	buf = new Buffer(2)
@@ -197,7 +199,7 @@ getCombinedCrc = (parts) ->
 
 
 exports.totalLength = totalLength = (entries) ->
-	return ZIP_ECD_SIZE + entries.reduce ((sum, x) -> sum + x.zLen), 0
+	ZIP_ECD_SIZE + entries.reduce ((sum, x) -> sum + x.zLen), 0
 
 exports.createEntry = createEntry = (filename, parts, mdate) ->
 	mdate ?= new Date()
@@ -212,7 +214,6 @@ exports.createEntry = createEntry = (filename, parts, mdate) ->
 		mtime: dosFormatTime(mdate)
 		mdate: dosFormatDate(mdate)
 		contentLength: contentLength
-		fileHeaderOffset: null # known only after it is appended to the stream
 		zLen: contentLength + centralDirectoryLength(filename)
 		stream: CombinedStream.create()
 	entry.stream.append(createFileHeader(entry))
@@ -222,11 +223,11 @@ exports.createEntry = createEntry = (filename, parts, mdate) ->
 
 exports.create = create = (entries) ->
 	out = CombinedStream.create()
+	out.append(entry.stream) for entry in entries
 	offset = 0
 	for entry in entries
-		entry.fileHeaderOffset = offset
+		out.append(createCDRecord(entry, offset))
 		offset += entry.contentLength
-		out.append(entry.stream)
 	out.append(createCDRecord(entry)) for entry in entries
 	out.append(createEndOfCDRecord(entries))
 	out.zLen = totalLength(entries)
