@@ -201,7 +201,7 @@ exports.totalLength = totalLength = (entries) ->
 
 exports.createEntry = createEntry = (filename, parts, mdate) ->
 	mdate ?= new Date()
-	compressed_size = parts.reduce ((sum, x) -> sum + x.zLen), 0
+	compressed_size = parts.reduce ((sum, x) -> sum + x.zLen), DEFLATE_END.length
 	uncompressed_size = parts.reduce ((sum, x) -> sum + x.len), 0
 	contentLength = fileHeaderLength(filename) + compressed_size
 	entry =
@@ -217,6 +217,7 @@ exports.createEntry = createEntry = (filename, parts, mdate) ->
 		stream: CombinedStream.create()
 	entry.stream.append(createFileHeader(entry))
 	entry.stream.append(stream) for { stream } in parts
+	entry.stream.append(DEFLATE_END)
 	return entry
 
 exports.create = create = (entries) ->
