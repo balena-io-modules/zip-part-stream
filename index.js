@@ -192,15 +192,16 @@
 
   exports.create = create = function(entries) {
     var entry, i, j, len, len1, offset, out;
-    offset = 0;
     out = CombinedStream.create();
     for (i = 0, len = entries.length; i < len; i++) {
       entry = entries[i];
       out.append(entry.stream);
     }
+    offset = 0;
     for (j = 0, len1 = entries.length; j < len1; j++) {
       entry = entries[j];
-      out.append(createCDRecord(entry, offset += entry.contentLength));
+      out.append(createCDRecord(entry, offset));
+      offset += entry.contentLength;
     }
     out.append(createEndOfCDRecord(entries));
     out.zLen = totalLength(entries);

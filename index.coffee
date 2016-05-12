@@ -222,10 +222,12 @@ exports.createEntry = createEntry = (filename, parts, mdate) ->
 	return entry
 
 exports.create = create = (entries) ->
-	offset = 0
 	out = CombinedStream.create()
 	out.append(entry.stream) for entry in entries
-	out.append(createCDRecord(entry, offset += entry.contentLength)) for entry in entries
+	offset = 0
+	for entry in entries
+		out.append(createCDRecord(entry, offset))
+		offset += entry.contentLength
 	out.append(createEndOfCDRecord(entries))
 	out.zLen = totalLength(entries)
 	return out
