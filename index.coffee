@@ -1,5 +1,5 @@
 crcUtils = require 'resin-crc-utils'
-CombinedStream = require 'combined-stream2'
+CombinedStream = require 'combined-stream'
 { DeflateCRC32Stream } = require 'crc32-stream'
 
 # Zip constants, explained how they are used on each function.

@@ -46,6 +46,7 @@ describe 'createZip', ->
 				entry = createEntry('input.txt', [ part ], mdate)
 				stream = create([ entry ])
 				expect(stream).to.be.a.Stream
+				expect(stream.zLen).to.equal(fs.readFileSync('test/fixtures/single-entry/output.zip').length)
 				drain(stream).then (data) ->
 					expect(data).to.deep.equal(fs.readFileSync('test/fixtures/single-entry/output.zip'))
 				.asCallback(done)
@@ -65,6 +66,7 @@ describe 'createZip', ->
 				entry = createEntry('input.txt', [ part1, part2 ], mdate)
 				stream = create([ entry ])
 				expect(stream).to.be.a.Stream
+				expect(stream.zLen).to.equal(fs.readFileSync('test/fixtures/single-entry-parts/output.zip').length)
 				drain(stream).then (data) ->
 					expect(data).to.deep.equal(fs.readFileSync('test/fixtures/single-entry-parts/output.zip'))
 				.asCallback(done)
@@ -91,6 +93,7 @@ describe 'createZip', ->
 			entry2 = createEntry('hello.txt', [ part3, part4 ], mdate)
 			stream = create([ entry1, entry2 ])
 			expect(stream).to.be.a.Stream
+			expect(stream.zLen).to.equal(fs.readFileSync('test/fixtures/multiple-entries/output.zip').length)
 			drain(stream).then (data) ->
 				expect(data).to.deep.equal(fs.readFileSync('test/fixtures/multiple-entries/output.zip'))
 			.asCallback(done)
