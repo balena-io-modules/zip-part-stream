@@ -27,8 +27,8 @@ DEFLATE_END = new Buffer([ 0x03, 0x00 ])
 # to generate deflate streams that can be concatenated into a gzip stream
 class DeflatePartStream extends DeflateCRC32Stream
 	constructor: ->
+		super(arguments...)
 		@buf = new Buffer(0)
-		super
 	push: (chunk) ->
 		if chunk isnt null
 			# got another chunk, previous chunk is safe to send

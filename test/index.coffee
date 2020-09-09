@@ -2,7 +2,7 @@ Promise = require 'bluebird'
 fs = Promise.promisifyAll(require 'fs')
 path = require 'path'
 { expect } = require './utils/chai'
-{ create, createZip, createEntry, createDeflatePart } = require '..'
+{ create, createZip, createEntry, createDeflatePart } = require '../index.coffee'
 
 mdate = new Date(2016, 0, 1, 0, 0, 0) # use the same mdate in all tests
 
@@ -40,16 +40,14 @@ describe 'createZip', ->
 			before ->
 				prepareTestPart('test/fixtures/single-entry/test.txt')
 
-			it 'should create the expected zip file', (done) ->
+			it 'should create the expected zip file', ->
 				part = require('./fixtures/single-entry/test.txt.json')
 				part.stream = fs.createReadStream('test/fixtures/single-entry/test.txt.deflate')
 				entry = createEntry('input.txt', [ part ], mdate)
 				stream = create([ entry ])
-				expect(stream).to.be.a.Stream
 				expect(stream.zLen).to.equal(fs.readFileSync('test/fixtures/single-entry/output.zip').length)
 				drain(stream).then (data) ->
 					expect(data).to.deep.equal(fs.readFileSync('test/fixtures/single-entry/output.zip'))
-				.asCallback(done)
 
 		describe 'from multiple parts', ->
 			before ->
@@ -58,18 +56,16 @@ describe 'createZip', ->
 					prepareTestPart('test/fixtures/single-entry-parts/test2.txt')
 				])
 
-			it 'should create the expected zip file', (done) ->
+			it 'should create the expected zip file', ->
 				part1 = require('./fixtures/single-entry-parts/test1.txt.json')
 				part1.stream = fs.createReadStream('test/fixtures/single-entry-parts/test1.txt.deflate')
 				part2 = require('./fixtures/single-entry-parts/test2.txt.json')
 				part2.stream = fs.createReadStream('test/fixtures/single-entry-parts/test2.txt.deflate')
 				entry = createEntry('input.txt', [ part1, part2 ], mdate)
 				stream = create([ entry ])
-				expect(stream).to.be.a.Stream
 				expect(stream.zLen).to.equal(fs.readFileSync('test/fixtures/single-entry-parts/output.zip').length)
 				drain(stream).then (data) ->
 					expect(data).to.deep.equal(fs.readFileSync('test/fixtures/single-entry-parts/output.zip'))
-				.asCallback(done)
 
 	describe 'multiple entries', ->
 		before ->
@@ -80,7 +76,7 @@ describe 'createZip', ->
 				prepareTestPart('test/fixtures/multiple-entries/hello2.txt')
 			])
 
-		it 'should create the expected zip file', (done) ->
+		it 'should create the expected zip file', ->
 			part1 = require('./fixtures/multiple-entries/foo1.txt.json')
 			part1.stream = fs.createReadStream('test/fixtures/multiple-entries/foo1.txt.deflate')
 			part2 = require('./fixtures/multiple-entries/foo2.txt.json')
@@ -92,8 +88,6 @@ describe 'createZip', ->
 			part4.stream = fs.createReadStream('test/fixtures/multiple-entries/hello2.txt.deflate')
 			entry2 = createEntry('hello.txt', [ part3, part4 ], mdate)
 			stream = create([ entry1, entry2 ])
-			expect(stream).to.be.a.Stream
 			expect(stream.zLen).to.equal(fs.readFileSync('test/fixtures/multiple-entries/output.zip').length)
 			drain(stream).then (data) ->
 				expect(data).to.deep.equal(fs.readFileSync('test/fixtures/multiple-entries/output.zip'))
-			.asCallback(done)
