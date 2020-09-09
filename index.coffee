@@ -3,32 +3,32 @@ CombinedStream = require 'combined-stream'
 { DeflateCRC32Stream } = require 'crc32-stream'
 
 # Zip constants, explained how they are used on each function.
-ZIP_VERSION = new Buffer([ 0x0a, 0x00 ])
-ZIP_FLAGS = new Buffer([ 0x00, 0x00 ])
-ZIP_ENTRY_SIGNATURE = new Buffer([ 0x50, 0x4b, 0x03, 0x04 ])
-ZIP_ENTRY_EXTRAFIELD_LEN = new Buffer([ 0x00, 0x00 ])
-ZIP_COMPRESSION_DEFLATE = new Buffer([ 0x08, 0x00 ])
-ZIP_CD_SIGNATURE = new Buffer([ 0x50, 0x4b, 0x01, 0x02 ])
-ZIP_CD_VERSION = new Buffer([ 0x1e, 0x03 ])
-ZIP_CD_FILE_COMM_LEN = new Buffer([ 0x00, 0x00 ])
-ZIP_CD_DISK_START = new Buffer([ 0x00, 0x00 ])
-ZIP_CD_INTERNAL_ATT = new Buffer([ 0x01, 0x00 ])
-ZIP_CD_EXTERNAL_ATT = new Buffer([ 0x00, 0x00, 0xa4, 0x81 ])
-ZIP_ECD_SIGNATURE = new Buffer([ 0x50, 0x4b, 0x05, 0x06 ])
-ZIP_ECD_DISK_NUM = new Buffer([ 0x00, 0x00 ])
-ZIP_ECD_COMM_LEN = new Buffer([ 0x00, 0x00 ])
+ZIP_VERSION = Buffer.from([ 0x0a, 0x00 ])
+ZIP_FLAGS = Buffer.from([ 0x00, 0x00 ])
+ZIP_ENTRY_SIGNATURE = Buffer.from([ 0x50, 0x4b, 0x03, 0x04 ])
+ZIP_ENTRY_EXTRAFIELD_LEN = Buffer.from([ 0x00, 0x00 ])
+ZIP_COMPRESSION_DEFLATE = Buffer.from([ 0x08, 0x00 ])
+ZIP_CD_SIGNATURE = Buffer.from([ 0x50, 0x4b, 0x01, 0x02 ])
+ZIP_CD_VERSION = Buffer.from([ 0x1e, 0x03 ])
+ZIP_CD_FILE_COMM_LEN = Buffer.from([ 0x00, 0x00 ])
+ZIP_CD_DISK_START = Buffer.from([ 0x00, 0x00 ])
+ZIP_CD_INTERNAL_ATT = Buffer.from([ 0x01, 0x00 ])
+ZIP_CD_EXTERNAL_ATT = Buffer.from([ 0x00, 0x00, 0xa4, 0x81 ])
+ZIP_ECD_SIGNATURE = Buffer.from([ 0x50, 0x4b, 0x05, 0x06 ])
+ZIP_ECD_DISK_NUM = Buffer.from([ 0x00, 0x00 ])
+ZIP_ECD_COMM_LEN = Buffer.from([ 0x00, 0x00 ])
 ZIP_ECD_SIZE = 22
 
 # DEFLATE ending block
-DEFLATE_END = new Buffer([ 0x03, 0x00 ])
+DEFLATE_END = Buffer.from([ 0x03, 0x00 ])
 
 # Use the logic briefly described here by the author of zlib library:
 # http://stackoverflow.com/questions/14744692/concatenate-multiple-zlib-compressed-data-streams-into-a-single-stream-efficient#comment51865187_14744792
 # to generate deflate streams that can be concatenated into a gzip stream
 class DeflatePartStream extends DeflateCRC32Stream
 	constructor: ->
-		@buf = new Buffer(0)
-		super
+		super(arguments...)
+		@buf = Buffer.alloc(0)
 	push: (chunk) ->
 		if chunk isnt null
 			# got another chunk, previous chunk is safe to send
@@ -45,7 +45,7 @@ class DeflatePartStream extends DeflateCRC32Stream
 		@flush =>
 			super()
 	metadata: ->
-		crc: @digest()
+		crc: @digest().readUInt32BE(0)
 		len: @size()
 		zLen: @size(true)
 
@@ -63,7 +63,7 @@ centralDirectoryLength = (filename) -> 0x2e + filename.length
 # Return unsigned int as a buffer in little endian.
 # The size of the buffer needs to be passed as 2nd argument.
 iob = (number, size) ->
-	b = new Buffer(size)
+	b = Buffer.alloc(size)
 	b.fill(0).writeUIntLE(number, 0, size)
 	return b
 
@@ -100,7 +100,7 @@ createFileHeader = ({ filename, compressed_size, uncompressed_size, crc, mtime, 
 		iob(uncompressed_size, 4)
 		iob(filename.length, 2)
 		ZIP_ENTRY_EXTRAFIELD_LEN
-		new Buffer(filename)
+		Buffer.from(filename)
 	])
 
 # Create central directory record, where each of the files in zip are listed (again)
@@ -146,7 +146,7 @@ createCDRecord = ({ filename, compressed_size, uncompressed_size, crc, mtime, md
 		ZIP_CD_INTERNAL_ATT
 		ZIP_CD_EXTERNAL_ATT
 		iob(fileHeaderOffset, 4)
-		new Buffer(filename)
+		Buffer.from(filename)
 	])
 
 # Create End of Central Directory Record
@@ -178,19 +178,19 @@ createEndOfCDRecord = (entries) ->
 	])
 
 dosFormatTime = (d) ->
-	buf = new Buffer(2)
+	buf = Buffer.alloc(2)
 	buf.writeUIntLE((d.getSeconds() / 2) + (d.getMinutes() << 5) + (d.getHours() << 11), 0, 2)
 	return buf
 
 dosFormatDate = (d) ->
-	buf = new Buffer(2)
+	buf = Buffer.alloc(2)
 	buf.writeUIntLE(d.getDate() + ((d.getMonth() + 1) << 5) + ((d.getFullYear() - 1980) << 9), 0, 2)
 	return buf
 
 getCombinedCrc = (parts) ->
 	if parts.length == 1
 		# crc32 is stored as a number, has to be transformed to a Buffer
-		buf = new Buffer(4)
+		buf = Buffer.alloc(4)
 		buf.writeUInt32LE(parts[0].crc, 0, 4)
 		return buf
 	else
