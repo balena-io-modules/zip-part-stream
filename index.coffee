@@ -45,7 +45,7 @@ class DeflatePartStream extends DeflateCRC32Stream
 		@flush =>
 			super()
 	metadata: ->
-		crc: @digest()
+		crc: @digest().readUInt32BE(0)
 		len: @size()
 		zLen: @size(true)
 
