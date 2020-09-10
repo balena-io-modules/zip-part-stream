@@ -3,9 +3,12 @@
   "version": "1.0.0",
   "description": "Create zip from multiple pre-compressed partial files.",
   "scripts": {
-    "prepublish": "./node_modules/.bin/coffee -c index.coffee",
+    "prepare": "./node_modules/.bin/coffee -c index.coffee",
     "test": "./node_modules/.bin/mocha --require coffeescript/register test/index.coffee"
   },
+  "files": [
+    "index.js"
+  ],
   "license": "Apache-2.0",
   "dependencies": {
     "combined-stream": "^1.0.8",
