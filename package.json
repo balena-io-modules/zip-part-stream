@@ -1,6 +1,6 @@
 {
   "name": "zip-part-stream",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Create zip from multiple pre-compressed partial files.",
   "scripts": {
     "prepare": "./node_modules/.bin/coffee -c index.coffee",
