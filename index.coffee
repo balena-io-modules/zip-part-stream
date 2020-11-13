@@ -1,4 +1,4 @@
-crcUtils = require 'resin-crc-utils'
+crcUtils = require '@balena/node-crc-utils'
 CombinedStream = require 'combined-stream'
 { DeflateCRC32Stream } = require 'crc32-stream'
 
@@ -194,7 +194,7 @@ getCombinedCrc = (parts) ->
 		buf.writeUInt32LE(parts[0].crc, 0, 4)
 		return buf
 	else
-		crcUtils.crc32_combine_multi(parts).combinedCrc32[0..3]
+		crcUtils.crc32_combine_multi(parts).combinedCrc32
 
 
 exports.totalLength = totalLength = (entries) ->

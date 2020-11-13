@@ -11,9 +11,9 @@
   ],
   "license": "Apache-2.0",
   "dependencies": {
+    "@balena/node-crc-utils": "^2.0.0",
     "combined-stream": "^1.0.8",
-    "crc32-stream": "^4.0.0",
-    "resin-crc-utils": "^1.0.3"
+    "crc32-stream": "^4.0.0"
   },
   "devDependencies": {
     "bluebird": "^3.7.2",
