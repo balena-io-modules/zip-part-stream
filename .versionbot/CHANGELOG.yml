@@ -1,0 +1,110 @@
+- version: 1.0.2
+  date: 2020-11-13T16:09:42Z
+  commits:
+    - hash: f342f580363c86a53a3f39eccceccbb240d9c523
+      author: Alexis Svinartchouk
+      footers:
+        change-type: patch
+      subject: Update resin-crc-utils -> @balena/node-crc-utils
+      body:
+- version: 1.0.1
+  date: 2020-09-10T09:57:18Z
+  commits:
+    - hash: af59796bae84956cf6cd1b0287cae27d5d51b0ab
+      author: Alexis Svinartchouk
+      footers:
+        change-type: patch
+      subject: Fix changelog
+      body:
+    - hash: 1d5fab599f202966a76de56415fb53f372da7148
+      author: Alexis Svinartchouk
+      footers:
+        change-type: patch
+      subject: Remove coffee file from package
+      body:
+- version: 1.0.0
+  date: 2020-09-09T17:52:23Z
+  commits:
+    - hash: ce98bb245a2a96abadc609417b1e350b369e5f34
+      author: Alexis Svinartchouk
+      footers:
+        change-type: major
+      subject: Update dependencies, update coffescript to 2.5.1
+      body:
+    - hash: 453d3a2a49f4e8206025928545ba7faeed9baf9f
+      author: Alexis Svinartchouk
+      footers:
+        change-type: patch
+      subject: Remove deprecated "new Buffer()" calls
+      body:
+    - hash: 913f0de6b9aa58f9fad1a2db1bba75f8f8932be9
+      author: Alexis Svinartchouk
+      footers:
+        change-type: patch
+      subject: Remove generated js file
+      body:
+    - hash: fe51f4788f94ba79b10f49b8946258e5ed21ff64
+      author: Alexis Svinartchouk
+      footers:
+        change-type: patch
+      subject: Update crc32-stream to 4.0.0
+      body:
+    - hash: 3fd9fd2c71bae17772168872f9796dd77808550f
+      author: Alexios Theodoros Brezas
+      subject: remove unused variable
+      body:
+    - hash: 35c55a65940bfb3bc2a114ea6709b3c60a3eb2fd
+      author: Alexios Theodoros Brezas
+      subject: Use combined stream version 1.
+      body: We had moved to combined stream v2 when img-maker was using node streams v2, but we don't need them anymore, and for some reason combined stream does not work with the streams returned by aws sdk s3 library.
+- version: 0.3.0
+  date: 2016-05-12T02:25:46Z
+  commits:
+    - hash: 59990f97cf6414d81e69e33df27f8fec6f6ad4c3
+      author: Alexios Theodoros Brezas
+      subject: fix central directory offset loop
+      body: and stop being clever with increments
+- version: 0.2.0
+  date: 2016-05-05T16:11:33Z
+  commits:
+    - hash: 75438cdcc043f28ed07f13cba0da9e4bbdb29360
+      author: Alexios Theodoros Brezas
+      subject: fix central directory loop
+      body: previous code added the central directory record twice
+    - hash: 62215029bfbba38838c8fa01f1b5de1f8cdf4a41
+      author: Alexios Theodoros Brezas
+      subject: Increase code clarity
+      body: |-
+        Functions that prepare buffers now just concatenate buffers
+        making them easier to read.
+        Also create function made cleaner by calculating the file
+        header offset at the right time (instead of too early as it was before).
+    - hash: 3d2940fbf2641e9c3d04fa9a8f4ccd95eeec01b7
+      author: Alexios Theodoros Brezas
+      subject: Add DEFLATE_END block to the end of each entry.
+      body: |-
+        This allows all deflate parts to be the same, and have the same
+        format as gzip-stream.
+        This was supposed to be part of 0.1.0 but was accidentally not
+        included.
+        Tests were passing because of a failure in the test framework,
+        it wasn't actually running the expect() checks. Tests are fixed
+        and now automatically generate all the required files instead
+        of pre-generating them as was done until now.
+- version: 0.1.0
+  date: 2016-04-01T17:25:34Z
+  commits:
+    - hash: 885d5c85237f6ac1fa5f6d62a30a9cd0361aadfe
+      author: Alexios Theodoros Brezas
+      subject: Use combined-stream2 library
+      body: |-
+        combined-stream2 is compatible with Streams v2 API, and therefore plays
+        nicer with the libraries we use in our services, for example
+        event-stream.
+        This fixes an issue we have currently on image-maker, where event-stream
+        writes too much data to the zip library, before that is able to write it
+        to the response, throwing "CombinedStream#maxDataSize max data size exceeded".
+    - hash: 10fb88033ae886f536c34683b8b4ca7be4f6c7b6
+      author: Alexios Theodoros Brezas
+      subject: backwards compatibility
+      body:
