@@ -11,8 +11,11 @@
   "files": [
     "index.js"
   ],
+  "engines": {
+    "node": ">=16"
+  },
   "dependencies": {
-    "@balena/node-crc-utils": "^2.0.0",
+    "@balena/node-crc-utils": "^3.0.0",
     "combined-stream": "^1.0.8",
     "crc32-stream": "^4.0.0"
   },
