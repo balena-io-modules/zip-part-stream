@@ -2,6 +2,8 @@
   "name": "zip-part-stream",
   "version": "1.0.3",
   "description": "Create zip from multiple pre-compressed partial files.",
+  "author": "Balena Ltd. <hello@balena.io>",
+  "license": "Apache-2.0",
   "scripts": {
     "prepare": "./node_modules/.bin/coffee -c index.coffee",
     "test": "./node_modules/.bin/mocha --require coffeescript/register test/index.coffee"
@@ -9,9 +11,11 @@
   "files": [
     "index.js"
   ],
-  "license": "Apache-2.0",
+  "engines": {
+    "node": ">=16"
+  },
   "dependencies": {
-    "@balena/node-crc-utils": "^2.0.0",
+    "@balena/node-crc-utils": "^3.0.0",
     "combined-stream": "^1.0.8",
     "crc32-stream": "^4.0.0"
   },
