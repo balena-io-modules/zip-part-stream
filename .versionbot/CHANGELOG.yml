@@ -1,7 +1,25 @@
 - commits:
+    - subject: Add support for Node 18
+      hash: 7df21d31c67ff982bf50e9490837ee3ac2b360d1
+      body: ""
+      footer:
+        Change-type: major
+        change-type: major
+      author: Akis Kesoglou
+    - subject: Build with Flowzone
+      hash: f29cf32358e0cbb9644c799245e2bd8ddb09c065
+      body: ""
+      footer:
+        Change-type: minor
+        change-type: minor
+      author: Akis Kesoglou
+  version: 2.0.0
+  title: ""
+  date: 2023-01-20T16:49:46.184Z
+- commits:
     - subject: Add versionbot changelog
       hash: f00475a17165009b7fadeb60948897be8e3c2e1b
-      body: ''
+      body: ""
       footer:
         Change-type: patch
         change-type: patch
@@ -39,7 +57,7 @@
       author: Alexis Svinartchouk
       footers:
         change-type: major
-      subject: 'Update dependencies, update coffescript to 2.5.1'
+      subject: Update dependencies, update coffescript to 2.5.1
       body: null
     - hash: 453d3a2a49f4e8206025928545ba7faeed9baf9f
       author: Alexis Svinartchouk
@@ -66,8 +84,7 @@
     - hash: 35c55a65940bfb3bc2a114ea6709b3c60a3eb2fd
       author: Alexios Theodoros Brezas
       subject: Use combined stream version 1.
-      body: >-
-        We had moved to combined stream v2 when img-maker was using node streams
+      body: We had moved to combined stream v2 when img-maker was using node streams
         v2, but we don't need them anymore, and for some reason combined stream
         does not work with the streams returned by aws sdk s3 library.
 - version: 0.3.0
@@ -121,8 +138,7 @@
 
         writes too much data to the zip library, before that is able to write it
 
-        to the response, throwing "CombinedStream#maxDataSize max data size
-        exceeded".
+        to the response, throwing "CombinedStream#maxDataSize max data size exceeded".
     - hash: 10fb88033ae886f536c34683b8b4ca7be4f6c7b6
       author: Alexios Theodoros Brezas
       subject: backwards compatibility
