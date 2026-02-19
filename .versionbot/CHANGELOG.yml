@@ -1,4 +1,17 @@
 - commits:
+    - subject: "Add id-token: write permission for NPM OIDC publishing"
+      hash: bb1dae7e247afbd8af6477cc4e23517b576becfa
+      body: ""
+      footer:
+        Change-type: patch
+        change-type: patch
+        Signed-off-by: Kyle Harding <kyle@balena.io>
+        signed-off-by: Kyle Harding <kyle@balena.io>
+      author: Kyle Harding
+  version: 2.0.1
+  title: ""
+  date: 2026-02-19T02:00:01.271Z
+- commits:
     - subject: Add support for Node 18
       hash: 7df21d31c67ff982bf50e9490837ee3ac2b360d1
       body: ""
@@ -138,7 +151,8 @@
 
         writes too much data to the zip library, before that is able to write it
 
-        to the response, throwing "CombinedStream#maxDataSize max data size exceeded".
+        to the response, throwing "CombinedStream#maxDataSize max data size
+        exceeded".
     - hash: 10fb88033ae886f536c34683b8b4ca7be4f6c7b6
       author: Alexios Theodoros Brezas
       subject: backwards compatibility
