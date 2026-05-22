@@ -18,6 +18,13 @@ ZIP_ECD_SIGNATURE = Buffer.from([ 0x50, 0x4b, 0x05, 0x06 ])
 ZIP_ECD_DISK_NUM = Buffer.from([ 0x00, 0x00 ])
 ZIP_ECD_COMM_LEN = Buffer.from([ 0x00, 0x00 ])
 ZIP_ECD_SIZE = 22
+ZIP_VERSION_ZIP64 = Buffer.from([ 0x2d, 0x00 ])
+ZIP64_EXTRA_TAG = Buffer.from([ 0x01, 0x00 ])
+ZIP64_ECD_SIGNATURE = Buffer.from([ 0x50, 0x4b, 0x06, 0x06 ])
+ZIP64_ECD_LOCATOR_SIGNATURE = Buffer.from([ 0x50, 0x4b, 0x06, 0x07 ])
+ZIP64_OVERHEAD = 76  # Zip64 EOCD (56) + Zip64 EOCD Locator (20)
+ZIP64_MAGIC_NUMBER = 0xFFFFFFFF # 2^32-1, the maximum value for compressed and uncompressed sizes in non-Zip64 format
+ZIP64_MAGIC_BUFFER = Buffer.from([ 0xff, 0xff, 0xff, 0xff ])
 
 # DEFLATE ending block
 DEFLATE_END = Buffer.from([ 0x03, 0x00 ])
@@ -53,12 +60,12 @@ exports.createDeflatePart = ->
 	return new DeflatePartStream()
 
 # Calculate length of file entry header
-# length of static information + filename length + extrafield length (0)
-fileHeaderLength = (filename) -> 30 + filename.length
+# length of static information + filename length + extrafield length (0 or 20 for zip64)
+fileHeaderLength = (filename, zip64) -> 30 + filename.length + (if zip64 then 20 else 0)
 
-# Calculate length of central directory (assumes only one file)
-# length of static information + filename length + central directory extrafield length (0)
-centralDirectoryLength = (filename) -> 0x2e + filename.length
+# Calculate length of central directory record
+# length of static information + filename length + central directory extrafield length (0 or 28 for zip64)
+centralDirectoryLength = (filename, zip64) -> 0x2e + filename.length + (if zip64 then 28 else 0)
 
 # Return unsigned int as a buffer in little endian.
 # The size of the buffer needs to be passed as 2nd argument.
@@ -66,6 +73,17 @@ iob = (number, size) ->
 	b = Buffer.alloc(size)
 	b.fill(0).writeUIntLE(number, 0, size)
 	return b
+
+# Return unsigned 64-bit int as a buffer in little endian.
+iob8 = (number) ->
+	b = Buffer.alloc(8)
+	b.writeBigUInt64LE(BigInt(number))
+	return b
+
+# Create zip64 extra field for local file header (original + compressed size)
+createZip64LocalExtra = (uncompressed_size, compressed_size) ->
+	data = Buffer.concat([ iob8(uncompressed_size), iob8(compressed_size) ])
+	Buffer.concat([ ZIP64_EXTRA_TAG, iob(data.length, 2), data ])
 
 # Create file entry header
 # Structure:
@@ -87,21 +105,28 @@ iob = (number, size) ->
 # 	LEXTR: Length of extrafields attribute (last attribute)
 # 	FILENAME: Filename, ascii
 # 	EXTRAFIELD: Description of further custom properties (we use a constant)
-createFileHeader = ({ filename, compressed_size, uncompressed_size, crc, mtime, mdate }) ->
+createFileHeader = ({ filename, compressed_size, uncompressed_size, crc, mtime, mdate, zip64 }) ->
+	localExtra = if zip64 then createZip64LocalExtra(uncompressed_size, compressed_size) else Buffer.alloc(0)
 	Buffer.concat([
 		ZIP_ENTRY_SIGNATURE
-		ZIP_VERSION
+		if zip64 then ZIP_VERSION_ZIP64 else ZIP_VERSION
 		ZIP_FLAGS
 		ZIP_COMPRESSION_DEFLATE
 		mtime
 		mdate
 		crc
-		iob(compressed_size, 4)
-		iob(uncompressed_size, 4)
+		if zip64 then ZIP64_MAGIC_BUFFER else iob(compressed_size, 4)
+		if zip64 then ZIP64_MAGIC_BUFFER else iob(uncompressed_size, 4)
 		iob(filename.length, 2)
-		ZIP_ENTRY_EXTRAFIELD_LEN
+		if zip64 then iob(localExtra.length, 2) else ZIP_ENTRY_EXTRAFIELD_LEN
 		Buffer.from(filename)
+		localExtra
 	])
+
+# Create zip64 extra field for central directory record (original + compressed size + header offset)
+createZip64CDExtra = (uncompressed_size, compressed_size, headerOffset) ->
+	data = Buffer.concat([ iob8(uncompressed_size), iob8(compressed_size), iob8(headerOffset) ])
+	Buffer.concat([ ZIP64_EXTRA_TAG, iob(data.length, 2), data ])
 
 # Create central directory record, where each of the files in zip are listed (again)
 # Structure for each file entry:
@@ -127,26 +152,28 @@ createFileHeader = ({ filename, compressed_size, uncompressed_size, crc, mtime, 
 #	FILENAME: Filename, ascii
 #	EXTRAFIELD: Description of further custom properties (const here)
 #	COMMENT: File comment (none here, no support for comments)
-createCDRecord = ({ filename, compressed_size, uncompressed_size, crc, mtime, mdate }, fileHeaderOffset) ->
+createCDRecord = ({ filename, compressed_size, uncompressed_size, crc, mtime, mdate, zip64 }, fileHeaderOffset) ->
+	cdExtra = if zip64 then createZip64CDExtra(uncompressed_size, compressed_size, fileHeaderOffset) else Buffer.alloc(0)
 	Buffer.concat([
 		ZIP_CD_SIGNATURE
 		ZIP_CD_VERSION
-		ZIP_VERSION
+		if zip64 then ZIP_VERSION_ZIP64 else ZIP_VERSION
 		ZIP_FLAGS
 		ZIP_COMPRESSION_DEFLATE
 		mtime
 		mdate
 		crc
-		iob(compressed_size, 4)
-		iob(uncompressed_size, 4)
+		if zip64 then ZIP64_MAGIC_BUFFER else iob(compressed_size, 4)
+		if zip64 then ZIP64_MAGIC_BUFFER else iob(uncompressed_size, 4)
 		iob(filename.length, 2)
-		ZIP_ENTRY_EXTRAFIELD_LEN
+		if zip64 then iob(cdExtra.length, 2) else ZIP_ENTRY_EXTRAFIELD_LEN
 		ZIP_CD_FILE_COMM_LEN
 		ZIP_CD_DISK_START
 		ZIP_CD_INTERNAL_ATT
 		ZIP_CD_EXTERNAL_ATT
-		iob(fileHeaderOffset, 4)
+		if zip64 then ZIP64_MAGIC_BUFFER else iob(fileHeaderOffset, 4)
 		Buffer.from(filename)
+		cdExtra
 	])
 
 # Create End of Central Directory Record
@@ -164,18 +191,48 @@ createCDRecord = ({ filename, compressed_size, uncompressed_size, crc, mtime, md
 # 	CDSZ: Size of central directory
 # 	CDOFF: Offset of central directory from disk it exists
 createEndOfCDRecord = (entries) ->
-	cd_offset = entries.reduce ((sum, x) -> sum + fileHeaderLength(x.filename) + x.compressed_size), 0
-	cd_size = entries.reduce ((sum, x) -> sum + centralDirectoryLength(x.filename)), 0
-	Buffer.concat([
-		ZIP_ECD_SIGNATURE
-		ZIP_ECD_DISK_NUM
-		ZIP_CD_DISK_START
-		iob(entries.length, 2)
-		iob(entries.length, 2)
-		iob(cd_size, 4)
-		iob(cd_offset, 4)
-		ZIP_ECD_COMM_LEN
-	])
+	cd_offset = entries.reduce(((sum, x) -> sum + fileHeaderLength(x.filename, x.zip64) + x.compressed_size), 0)
+	cd_size = entries.reduce(((sum, x) -> sum + centralDirectoryLength(x.filename, x.zip64)), 0)
+	if entries.some((x) -> x.zip64)
+		zip64EOCD = Buffer.concat([
+			ZIP64_ECD_SIGNATURE
+			iob8(44)
+			ZIP_CD_VERSION
+			ZIP_VERSION_ZIP64
+			iob(0, 4)
+			iob(0, 4)
+			iob8(entries.length)
+			iob8(entries.length)
+			iob8(cd_size)
+			iob8(cd_offset)
+		])
+		zip64Locator = Buffer.concat([
+			ZIP64_ECD_LOCATOR_SIGNATURE
+			iob(0, 4)
+			iob8(cd_offset + cd_size)
+			iob(1, 4)
+		])
+		eocd = Buffer.concat([
+			ZIP_ECD_SIGNATURE
+			ZIP_ECD_DISK_NUM
+			ZIP_CD_DISK_START
+			ZIP64_MAGIC_BUFFER
+			ZIP64_MAGIC_BUFFER
+			ZIP64_MAGIC_BUFFER
+			ZIP_ECD_COMM_LEN
+		])
+		Buffer.concat([ zip64EOCD, zip64Locator, eocd ])
+	else
+		Buffer.concat([
+			ZIP_ECD_SIGNATURE
+			ZIP_ECD_DISK_NUM
+			ZIP_CD_DISK_START
+			iob(entries.length, 2)
+			iob(entries.length, 2)
+			iob(cd_size, 4)
+			iob(cd_offset, 4)
+			ZIP_ECD_COMM_LEN
+		])
 
 dosFormatTime = (d) ->
 	buf = Buffer.alloc(2)
@@ -194,17 +251,26 @@ getCombinedCrc = (parts) ->
 		buf.writeUInt32LE(parts[0].crc, 0, 4)
 		return buf
 	else
-		crcUtils.crc32_combine_multi(parts).combinedCrc32
+		CRC32_PERIOD_NUMBER = 0xFFFFFFFF # 2^32-1
+		normalizedParts = parts.map (p) ->
+			# crc32_combine(crc1, crc2, n) receives len as a 32-bit integer, so any len >= 2^32 must be reduced here.
+			if p.len <= CRC32_PERIOD_NUMBER
+				return p
+			return { crc: p.crc, len: p.len % CRC32_PERIOD_NUMBER }
+		crcUtils.crc32_combine_multi(normalizedParts).combinedCrc32
 
 
 exports.totalLength = totalLength = (entries) ->
-	ZIP_ECD_SIZE + entries.reduce ((sum, x) -> sum + x.zLen), 0
+	zip64Overhead = if entries.some((e) -> e.zip64) then ZIP64_OVERHEAD else 0
+	ZIP_ECD_SIZE + zip64Overhead + entries.reduce ((sum, x) -> sum + x.zLen), 0
 
-exports.createEntry = createEntry = (filename, parts, mdate) ->
+exports.createEntry = createEntry = (filename, parts, mdate, options) ->
 	mdate ?= new Date()
+	options ?= {}
 	compressed_size = parts.reduce ((sum, x) -> sum + x.zLen), DEFLATE_END.length
 	uncompressed_size = parts.reduce ((sum, x) -> sum + x.len), 0
-	contentLength = fileHeaderLength(filename) + compressed_size
+	zip64 = compressed_size > ZIP64_MAGIC_NUMBER or uncompressed_size > ZIP64_MAGIC_NUMBER or options.forceZip64 == true
+	contentLength = fileHeaderLength(filename, zip64) + compressed_size
 	entry =
 		filename: filename
 		compressed_size: compressed_size
@@ -213,7 +279,8 @@ exports.createEntry = createEntry = (filename, parts, mdate) ->
 		mtime: dosFormatTime(mdate)
 		mdate: dosFormatDate(mdate)
 		contentLength: contentLength
-		zLen: contentLength + centralDirectoryLength(filename)
+		zLen: contentLength + centralDirectoryLength(filename, zip64)
+		zip64: zip64
 		stream: CombinedStream.create()
 	entry.stream.append(createFileHeader(entry))
 	entry.stream.append(stream) for { stream } in parts
