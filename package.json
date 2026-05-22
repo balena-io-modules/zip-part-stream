@@ -1,6 +1,7 @@
 {
   "name": "zip-part-stream",
   "version": "2.0.1",
+  "type": "commonjs",
   "description": "Create zip from multiple pre-compressed partial files.",
   "author": "Balena Ltd. <hello@balena.io>",
   "license": "Apache-2.0",
